@@ -5,30 +5,35 @@
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 generator client {
-  provider = "prisma-client"
-  output   = "../app/generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model User {
   id        String      @id @default(uuid())
-  email     String
-  provider  Provider
+  email     String      @unique
+  provider  Provider    @default(Google)
   streams   Stream[]
   upvotes   Upvote[]
 
 }
 
 model Stream {
-  id      String    @id @default(uuid())
-  type    StreamType
-  active  Boolean
-  upvotes Upvote[]
-  userId  String
-  user    User      @relation(fields: [userId], references: [id])
+  id            String    @id @default(uuid())
+  type          StreamType
+  active        Boolean
+  url           String
+  extractedId   String
+  title         String    @default("")
+  smallImg      String    @default("")
+  bigImg        String    @default("")
+  upvotes       Upvote[]
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
 
 }
 
