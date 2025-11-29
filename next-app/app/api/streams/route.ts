@@ -1,4 +1,5 @@
 import { prismaClient } from "@/app/lib/db";
+import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from 'zod';
 
@@ -63,14 +64,61 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url)
     const creatorId = searchParams.get("creatorId")
-    const streams = await prismaClient.stream.findMany({
+    const session = await getServerSession();
+    const user = await prismaClient.user.findFirst({
         where: {
-            userId: creatorId ?? ""
+            email: session?.user?.email ?? ""
         }
     })
 
+    if (!user) {
+        return NextResponse.json({
+            message: "Unauthorized access not allowed"
+        }, {
+            status: 403
+        })
+    }
+
+    if (!creatorId) {
+        return NextResponse.json({
+            message: "Error"
+        }, { status: 411 })
+    }
+
+    const [streams, activeStream]  = await Promise.all([await prismaClient.stream.findMany({
+        where: {
+            userId: creatorId,
+            played: false
+        },
+        include: {
+            _count: {
+                select: {
+                    upvotes: true
+                }
+            },
+            upvotes: {
+                where: {
+                    userId: user.id
+                }
+            }
+        }
+    }), prismaClient.currentStream.findFirst({
+        where: {
+            userId: creatorId
+        },
+        include: {
+            stream: true
+        }
+    })])
+
+
     return NextResponse.json({
-        streams
+        streams: streams.map(({ _count, ...rest }) => ({
+            ...rest,
+            upvotesCount: _count.upvotes,
+            haveUpvoted: rest.upvotes.length ? true : false
+        })),
+        activeStream
     });
 
 }
